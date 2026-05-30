@@ -28,5 +28,4 @@ pytest-django>=4.8
 pytest-cov>=5.0
 faker>=26.0
 pypdf>=4.0
-pyspark>=3.5.0
 pyodbc>=5.0
