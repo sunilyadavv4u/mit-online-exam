@@ -5,7 +5,6 @@ from decimal import Decimal
 from io import BytesIO
 
 from django.db.models import Avg, Count, Q
-from django.db.models.functions import TruncDate
 from django.http import HttpResponse
 from django.utils import timezone
 from drf_spectacular.utils import OpenApiParameter, OpenApiTypes, extend_schema
@@ -100,21 +99,12 @@ class TeacherDashboardView(APIView):
                           .order_by('start_time')[:5]
                           .values('id', 'title', 'subject__name', 'start_time'))
 
-        # TruncDate works on PostgreSQL and SQLite (strftime in .extra() is SQLite-only).
-        attempts_by_day = [
-            {
-                'day': row['day'].isoformat() if row['day'] else '',
-                'count': row['count'],
-            }
-            for row in (
-                ExamAttempt.objects
-                .filter(submitted_at__gte=seven_days_ago, submitted_at__isnull=False)
-                .annotate(day=TruncDate('submitted_at'))
-                .values('day')
-                .annotate(count=Count('id'))
-                .order_by('day')
-            )
-        ]
+        attempts_by_day = (ExamAttempt.objects
+                           .filter(submitted_at__gte=seven_days_ago)
+                           .extra({'day': "strftime('%%Y-%%m-%%d', submitted_at)"})
+                           .values('day')
+                           .annotate(count=Count('id'))
+                           .order_by('day'))
 
         return Response({
             'total_students': total_students,
@@ -125,7 +115,7 @@ class TeacherDashboardView(APIView):
             'pass_percentage': round(pass_pct, 2),
             'average_score': float(avg_score) if avg_score else 0,
             'upcoming_exams': list(upcoming_exams),
-            'attempts_by_day': attempts_by_day,
+            'attempts_by_day': list(attempts_by_day),
         })
 
 
